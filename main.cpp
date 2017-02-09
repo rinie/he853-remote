@@ -8,12 +8,13 @@ int main(int argc, char **argv)
 	char protocol = 'E';
 	// Check arguments
 	if (argc < 3 || argc > 4 || ( argc == 4 && strlen(argv[3]) != 1 )) {
-		printf("Usage: %s <DeviceID> <Switch> [<Protocol>]\n", argv[0]);
+		printf("Usage: %s <DeviceID> <Command> [<Protocol>]\n", argv[0]);
 		printf("    DeviceID - ID of the device to act on\n");
-		printf("    Switch   - 0=OFF, 1=ON\n");
+		printf("    Command  - 0=OFF, 1=ON\n");
+		printf("      NOTE: AnBan has also values > 1\n");
 		printf("    Protocol - A=AnBan, U=UK, E=EU, K=KAKU, N=KAKUNEW, L=ALL\n");
-		printf("               Default protocol is '%c'\n", protocol);
-		printf("    NOTE: Protocol ALL is meant for quick tests and sends out with all protocols!\n");
+		printf("      Default protocol is '%c'\n", protocol);
+		printf("      NOTE: Protocol ALL is meant for tests and sends out with all protocols!\n");
 		return 1;
 	}
 	int deviceId = atoi(argv[1]);
