@@ -62,6 +62,7 @@ private:
 #ifndef RKR_STRUCT
 	bool sendOutputReport(uint8_t* buf);
 #endif
+	bool deviceInitialized();
 	bool readDeviceStatus();
 	bool sendRfData(He853Timings *t, uint8_t* data, uint8_t nDataBytes);
 	bool sendRfData_AnBan(uint16_t deviceCode, uint8_t cmd);
@@ -71,6 +72,7 @@ private:
 	bool execRfCommand();
 #endif
 public:
+	bool getDeviceInitialized(void);
 	bool getDeviceStatus(void);
 	bool sendAnBan(uint16_t deviceId, uint8_t command);
 	bool sendUK(uint16_t deviceId, bool command);
@@ -84,4 +86,3 @@ public:
 };
 
 #endif
-

@@ -4,15 +4,26 @@ HE853Controller::HE853Controller()
 {
 	anban_cnt = 0;
 	m_initialized = false;
+
 #if RUN_DRY == 0
-	handle = hid_open(0x4d9, 0x1357, NULL);
-	if (!handle) {
-		printf("Unable to open device\n");
+	struct hid_device_info *devs;
+	devs = hid_enumerate(0x4d9, 0x1357);
+	if (!devs) {
+		printf("No HE853 USB device (04d9:01357 Holtek Semiconductor, Inc.) found\n");
+		hid_free_enumeration(devs);
 	}
 	else
-#endif
 	{
-		this->m_initialized = true;
+		hid_free_enumeration(devs);
+		handle = hid_open(0x4d9, 0x1357, NULL);
+		if (!handle) {
+			printf("HE853 USB device not fully accessible\n");
+		}
+		else
+#endif
+		{
+			this->m_initialized = true;
+		}
 	}
 }
 
@@ -54,6 +65,15 @@ bool HE853Controller::sendOutputReports(uint8_t* buf, uint16_t nReports)
 			rv = hid_write(handle, buf + (i * 9), 9);
 		}
 		return (bool) rv;
+}
+
+bool HE853Controller::deviceInitialized()
+{
+	if (!m_initialized) {
+		return false;
+	} else {
+		return true;
+	}
 }
 
 bool HE853Controller::readDeviceStatus()
@@ -131,7 +151,7 @@ bool HE853Controller::sendRfData(He853Timings *t, uint8_t* data, uint8_t nDataBy
 
 	rfCmdBuf[2*9+0+0] = 0x0;  // report id = 0, as it seems to be the only report
 	rfCmdBuf[2*9+1+0] = 0x03;
-	DEBUG_PRINTF(("Protocol %s dataBytes %d %d\n", t->ProtocolName, nDataBytes, t->DataBitCount));
+	DEBUG_PRINTF(("Protocol %s, %d Bytes, %d Bits:\n", t->ProtocolName, nDataBytes, t->DataBitCount));
 	for (; i< nDataBytes && i < 7; i++) {
 		DEBUG_PRINTF(("%02X ", data[i]));
 		rfCmdBuf[2*9+1+1 + i] = data[i];
@@ -154,8 +174,9 @@ bool HE853Controller::sendRfData(He853Timings *t, uint8_t* data, uint8_t nDataBy
 	return sendOutputReports(rfCmdBuf, 5);
 }
 
+const char cAnBan[] = "AnBan";
 static struct He853Timings AnBanTimings = {
-	"AnBan",
+	(char *)&cAnBan,
 	1, // no T
 	320, 4800,
 	0, 0,
@@ -165,8 +186,9 @@ static struct He853Timings AnBanTimings = {
 	7
 } ;
 
+const char cUK[] = "UK";
 static struct He853Timings UKTimings = {
-	"UK",
+	(char *)&cUK,
 	1, // no T
 	320, 9700,
 	0,0,
@@ -176,8 +198,9 @@ static struct He853Timings UKTimings = {
 	18
 };
 
+const char cGER[] = "GER";
 static struct He853Timings GERTimings = {
-	"GER",
+	(char *)&cGER,
 	1, // no T
 	260, 8600,
 	0, 0,
@@ -201,8 +224,9 @@ static struct He853Timings GERTimings = {
 *   all on/off   ---- 001x AllOff/AllOn // is group (unit code bestaat uit short 0s)
 \*********************************************************************************************/
 
+const char cKAKU[] = "KAKU";
 static struct He853Timings KakuTimings = {
-	"KAKU",
+	(char *)&cKAKU,
 	350, // Base Time us
 	0, 0,
 	1,32,
@@ -230,8 +254,9 @@ static struct He853Timings KakuTimings = {
 *
 \*********************************************************************************************/
 
+const char cKAKUNEW[] = "KAKUNEW";
 static struct He853Timings KakuNewTimings = {
-	"KAKUNEW",
+	(char *)&cKAKUNEW,
 	275, // Base time in us
 	1, 8,
 	1,32,
@@ -394,6 +419,8 @@ bool HE853Controller::sendRfData_GER(uint16_t deviceCode, bool cmd)
 	if (cmd == true)
 		buf[3] |= 0x10;
 
+DEBUG_PRINTF(("buf: %02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]));
+
 	uint8_t gbuf[8] = { (uint8_t) (buf[0] >> 4),
  			    (uint8_t) (buf[0] & 15),
 			    (uint8_t) (buf[1] >> 4),
@@ -403,11 +430,15 @@ bool HE853Controller::sendRfData_GER(uint16_t deviceCode, bool cmd)
 			    (uint8_t) (buf[3] >> 4),
 			    (uint8_t) (buf[3] & 15) };
 
+DEBUG_PRINTF(("gbuf: %2x %2x %2x %2x %2x %2x %2x %2x\n", gbuf[0], gbuf[1], gbuf[2], gbuf[3], gbuf[4], gbuf[5], gbuf[6], gbuf[7]));
+
 	uint8_t kbuf[8];
 	for (i = 0; i < 8; i++) {
 		kbuf[i] = (uint8_t) ((tb_fx[gbuf[i]] | 0x40) & 0x7f);
 	}
 	kbuf[0] |= 0x80;
+
+DEBUG_PRINTF(("kbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", kbuf[0], kbuf[1], kbuf[2], kbuf[3], kbuf[4], kbuf[5], kbuf[6], kbuf[7]));
 
 	uint64_t t64 = 0;
 	t64 = kbuf[0];
@@ -588,6 +619,8 @@ bool HE853Controller::sendKaku(uint16_t deviceCode, bool cmd)
 	data[2] = 0b00010101;
 
 	sendRfData(&KakuTimings, data, sizeof(data));
+
+	return true;
 }
 
 bool HE853Controller::sendKakuNew(uint16_t deviceCode, bool cmd)
@@ -596,7 +629,7 @@ bool HE853Controller::sendKakuNew(uint16_t deviceCode, bool cmd)
 
 	// C3 ON
 	data[0] = 0x55; // 0b01010101;
-	data[1] = 0xA9; // b10101001;
+	data[1] = 0xA9; // 0b10101001;
 	data[2] = 0x96; // 0b10010110;
 	data[3] = 0xA9; // 0b10101001;
 	data[4] = 0x95; // 0b10010110;
@@ -605,6 +638,8 @@ bool HE853Controller::sendKakuNew(uint16_t deviceCode, bool cmd)
 	data[7] = 0x55; // 0b01011001;
 
 	sendRfData(&KakuNewTimings, data, sizeof(data));
+
+	return true;
 }
 
 
@@ -619,6 +654,11 @@ bool HE853Controller::execRfCommand()
 	return sendOutputReport(execCmdBuf);
 }
 #endif
+
+bool HE853Controller::getDeviceInitialized(void)
+{
+	return deviceInitialized();
+}
 
 bool HE853Controller::getDeviceStatus(void)
 {
@@ -655,10 +695,12 @@ bool HE853Controller::sendEU(uint16_t deviceId, bool command)
 #endif
 }
 
+// This is for the lazy - better just for test purposes
 bool HE853Controller::sendAll(uint16_t deviceId, uint8_t command)
 {
 	return sendAnBan(deviceId, command) &&
 		sendEU(deviceId, (bool)command) &&
+		sendKaku(deviceId, (bool)command) &&
+		sendKakuNew(deviceId, (bool)command) &&
 		sendUK(deviceId, (bool)command);
 }
-
