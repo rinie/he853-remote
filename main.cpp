@@ -5,28 +5,39 @@
 
 int main(int argc, char **argv)
 {
+	// Default protocol - see help text
 	char protocol = 'E';
+
 	// Check arguments
-	if (argc < 3 || argc > 4 || ( argc == 4 && strlen(argv[3]) != 1 )) {
-		printf("Usage: %s <DeviceID> <Command> [<Protocol>]\n", argv[0]);
+	if (argc != 1 && argc != 3 && !(argc == 4 && strlen(argv[3]) == 1) ) {
+		printf("Usage: %s [<DeviceID> <Command> [<Protocol>]]\n", argv[0]);
 		printf("    DeviceID - ID of the device to act on\n");
 		printf("    Command  - 0=OFF, 1=ON\n");
 		printf("      NOTE: AnBan has also values > 1\n");
 		printf("    Protocol - A=AnBan, U=UK, E=EU, K=KAKU, N=KAKUNEW, L=ALL\n");
 		printf("      Default protocol is '%c'\n", protocol);
 		printf("      NOTE: Protocol ALL is meant for tests and sends out with all protocols!\n");
+		printf("    Without parameters the device status will be shown\n");
 		return 1;
-	}
-	int deviceId = atoi(argv[1]);
-	int command = atoi(argv[2]);
-	if (argc == 4) {
-		protocol = argv[3][0];
 	}
 
 	HE853Controller *remote = new HE853Controller();
 	// Exit if something went wrong during accessing device
 	if (remote->getDeviceInitialized() == false) {
 		return 2;
+	}
+
+	// just show status and exit
+	if (argc == 1) {
+		remote->getDeviceStatus();
+		return 0;
+	}
+
+	// assign values
+	int deviceId = atoi(argv[1]);
+	int command = atoi(argv[2]);
+	if (argc == 4) {
+		protocol = argv[3][0];
 	}
 
 	switch(protocol)
