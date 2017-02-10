@@ -20,49 +20,39 @@ HE853Controller::HE853Controller()
 			printf("HE853 USB device not fully accessible\n");
 		}
 		else
-#endif
 		{
-			this->m_initialized = true;
+			m_initialized = true;
 		}
 	}
+#else
+	m_initialized = true;
+#endif
 }
 
 HE853Controller::~HE853Controller()
 {
 }
 
-#ifndef RKR_STRUCT
-bool HE853Controller::sendOutputReport(uint8_t* buf)
-{
-	uint8_t obuf[9];
-	obuf[0] = 0x00; // report id = 0, as it seems to be the only report
-#if DEBUG == 1
-	printf("%.2X ", obuf[0]);
-#endif
-	for (int i = 0; i < 8; i++) {
-		obuf[i + 1] = buf[i];
-#if DEBUG == 1
-		printf("%.2X ", obuf[i + 1]);
-#endif
-	}
-#if DEBUG == 1
-	printf("\n");
-#endif
-#if RUN_DRY == 1
-	return true;
-#else
-	return (bool) hid_write(handle, obuf, 9);
-#endif
-}
-#endif
-
 bool HE853Controller::sendOutputReports(uint8_t* buf, uint16_t nReports)
 {
 		int rv;
 
-		for (uint16_t i=0; i <  nReports; i++) {
-			DEBUG_PRINTF(("Report %d report %02X first byte %02X\n", i, buf[i*9], buf[i*9+1]));
+#if DEBUG == 1
+		DEBUG_PRINTF(("\nsendToStick:\n"));
+		DEBUG_PRINTF(("  buffer: "));
+		for(uint16_t h=0; h < sizeof(buf); h++ ) {
+        DEBUG_PRINTF((" %02X", buf[h]));
+		}
+		DEBUG_PRINTF(("\n"));
+#endif
+
+		for (uint16_t i=0; i < nReports; i++) {
+			DEBUG_PRINTF(("  Report %d report %02X first byte %02X\n", i, buf[i*9], buf[i*9+1]));
+#if RUN_DRY == 0
 			rv = hid_write(handle, buf + (i * 9), 9);
+#else
+			DEBUG_PRINTF(("  Dry run - nothing send\n"));
+#endif
 		}
 		return (bool) rv;
 }
@@ -78,19 +68,6 @@ bool HE853Controller::deviceInitialized()
 
 bool HE853Controller::readDeviceStatus()
 {
-#ifndef RKR_STRUCT
-	uint8_t buf[8];
-	if (!m_initialized) return false;
-
-	memset(buf, 0x00, sizeof(buf));
-	buf[0] = 0x06;
-	buf[1] = 0x01;
-#if RUN_DRY == 0
-	return sendOutputReport(buf);
-#else
-	return true;
-#endif
-#else
 	uint8_t buf[9];
 	if (!m_initialized) return false;
 
@@ -102,7 +79,6 @@ bool HE853Controller::readDeviceStatus()
 	return sendOutputReports(buf, 1);
 #else
 	return true;
-#endif
 #endif
 }
 
@@ -151,7 +127,7 @@ bool HE853Controller::sendRfData(He853Timings *t, uint8_t* data, uint8_t nDataBy
 
 	rfCmdBuf[2*9+0+0] = 0x0;  // report id = 0, as it seems to be the only report
 	rfCmdBuf[2*9+1+0] = 0x03;
-	DEBUG_PRINTF(("Protocol %s, %d Bytes, %d Bits:\n", t->ProtocolName, nDataBytes, t->DataBitCount));
+	DEBUG_PRINTF(("\nProtocol %s, %d Bytes, %d Bits:\n  ", t->ProtocolName, nDataBytes, t->DataBitCount));
 	for (; i< nDataBytes && i < 7; i++) {
 		DEBUG_PRINTF(("%02X ", data[i]));
 		rfCmdBuf[2*9+1+1 + i] = data[i];
@@ -160,7 +136,7 @@ bool HE853Controller::sendRfData(He853Timings *t, uint8_t* data, uint8_t nDataBy
 	rfCmdBuf[3*9+0+0] = 0x0;  // report id = 0, as it seems to be the only report
 	rfCmdBuf[3*9+1+0] = 0x04;
 
-	DEBUG_PRINTF(("\n"));
+	DEBUG_PRINTF(("\n  "));
 	for (;i< nDataBytes && i < 7+7; i++) {
 		DEBUG_PRINTF(("%02X ", data[i]));
 		rfCmdBuf[3*9+1+1 + i-7] = data[i];
@@ -169,7 +145,7 @@ bool HE853Controller::sendRfData(He853Timings *t, uint8_t* data, uint8_t nDataBy
 	rfCmdBuf[4*9+0+0] = 0x0;  // report id = 0, as it seems to be the only report
 	rfCmdBuf[4*9+1+0] = 0x05; // Exec 'command'
 
-	DEBUG_PRINTF(("\nsendToStick\n"));
+	DEBUG_PRINTF(("\n"));
 
 	return sendOutputReports(rfCmdBuf, 5);
 }
@@ -269,11 +245,7 @@ static struct He853Timings KakuNewTimings = {
 
 bool HE853Controller::sendRfData_AnBan(uint16_t deviceCode, uint8_t cmd)
 {
-#ifdef RKR_STRUCT
 	uint8_t data[4];
-#else
-	uint8_t rfCmdBuf[32];
-#endif
 	unsigned int tb_fx[16] = { 0x609, 0x306, 0x803, 0xa08,
 				   0x00a, 0x200, 0xc02, 0x40c,
 				   0xe04, 0x70e, 0x507, 0x105,
@@ -285,7 +257,6 @@ bool HE853Controller::sendRfData_AnBan(uint16_t deviceCode, uint8_t cmd)
 	uint8_t idx;
 
 	uint32_t temp;
-
 
 	anban_cnt++;
 	gbuf[0] = 1;
@@ -337,73 +308,22 @@ bool HE853Controller::sendRfData_AnBan(uint16_t deviceCode, uint8_t cmd)
 	       (cbuf[2] << 0x08) | (cbuf[1] << 0x04) | cbuf[0];
 	temp = (temp >> 2) | ((temp & 3) << 0x1a);
 
-#ifdef RKR_STRUCT
 	data[0] = (uint8_t) (temp >> 20);
 	data[1] = (uint8_t) (temp >> 12);
 	data[2] = (uint8_t) (temp >> 4);
 	data[3] = (uint8_t) (temp << 4);
+
+	DEBUG_PRINTF(("\nBuffer debug for %s:\n", AnBanTimings.ProtocolName));
+	DEBUG_PRINTF(("  cbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", cbuf[0], cbuf[1], cbuf[2], cbuf[3], cbuf[4], cbuf[5], cbuf[6], cbuf[7]));
+	DEBUG_PRINTF(("  gbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", gbuf[0], gbuf[1], gbuf[2], gbuf[3], gbuf[4], gbuf[5], gbuf[6], gbuf[7]));
+	DEBUG_PRINTF(("  kbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", kbuf[0], kbuf[1], kbuf[2], kbuf[3], kbuf[4], kbuf[5], kbuf[6], kbuf[7]));
+
 	return sendRfData(&AnBanTimings, data, sizeof(data));
-#else
-	rfCmdBuf[0*8+0] = 0x01;
-	// StartBit_HTime
-	rfCmdBuf[0*8+1] = (uint8_t) ((320 / 10) >> 8);
-	rfCmdBuf[0*8+2] = (uint8_t) (320 / 10);
-	// StartBit_LTime
-	rfCmdBuf[0*8+3] = (uint8_t) ((4800 / 10) >> 8);
-	rfCmdBuf[0*8+4] = (uint8_t) (4800 / 10);
-	// EndBit_HTime
-	rfCmdBuf[0*8+5] = 0x00;
-	rfCmdBuf[0*8+6] = 0x00;
-	// EndBit_LTime
-	rfCmdBuf[0*8+7] = 0x00;
-	rfCmdBuf[1*8+0] = 0x02;
-	// EndBit_LTime
-	rfCmdBuf[1*8+1] = 0x00;
-	// DataBit0_HTime
-	rfCmdBuf[1*8+2] = (uint8_t) (320 / 10);
-	// DataBit0_LTime
-	rfCmdBuf[1*8+3] = (uint8_t) (960 / 10);
-	// DataBit1_HTime
-	rfCmdBuf[1*8+4] = (uint8_t) (960 / 10);
-	// DataBit1_LTime
-	rfCmdBuf[1*8+5] = (uint8_t) (320 / 10);
-	// DataBit_Count
-	rfCmdBuf[1*8+6] = (uint8_t) 28;
-	// Frame_Count
-	rfCmdBuf[1*8+7] = (uint8_t) 7;
-
-	rfCmdBuf[2*8+0] = 0x03;
-	rfCmdBuf[2*8+1] = (uint8_t) (temp >> 20);
-	rfCmdBuf[2*8+2] = (uint8_t) (temp >> 12);
-	rfCmdBuf[2*8+3] = (uint8_t) (temp >> 4);
-	rfCmdBuf[2*8+4] = (uint8_t) (temp << 4);
-	rfCmdBuf[2*8+5] = 0x00;
-	rfCmdBuf[2*8+6] = 0x00;
-	rfCmdBuf[2*8+7] = 0x00;
-
-	rfCmdBuf[3*8+0] = 0x04;
-	rfCmdBuf[3*8+1] = 0x00;
-	rfCmdBuf[3*8+2] = 0x00;
-	rfCmdBuf[3*8+3] = 0x00;
-	rfCmdBuf[3*8+4] = 0x00;
-	rfCmdBuf[3*8+5] = 0x00;
-	rfCmdBuf[3*8+6] = 0x00;
-	rfCmdBuf[3*8+7] = 0x00;
-
-	return sendOutputReport(rfCmdBuf)
-		&& sendOutputReport(rfCmdBuf+8)
-		&& sendOutputReport(rfCmdBuf+16)
-		&& sendOutputReport(rfCmdBuf+24);
-#endif
 }
 
 bool HE853Controller::sendRfData_GER(uint16_t deviceCode, bool cmd)
 {
-#ifdef RKR_STRUCT
 	uint8_t data[8];
-#else
-	uint8_t rfCmdBuf[32];
-#endif
 	int i = 0;
 
 	uint8_t tb_fx[16] = { 0x07, 0x0b, 0x0d, 0x0e,
@@ -419,8 +339,6 @@ bool HE853Controller::sendRfData_GER(uint16_t deviceCode, bool cmd)
 	if (cmd == true)
 		buf[3] |= 0x10;
 
-DEBUG_PRINTF(("buf: %02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]));
-
 	uint8_t gbuf[8] = { (uint8_t) (buf[0] >> 4),
  			    (uint8_t) (buf[0] & 15),
 			    (uint8_t) (buf[1] >> 4),
@@ -430,15 +348,11 @@ DEBUG_PRINTF(("buf: %02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]));
 			    (uint8_t) (buf[3] >> 4),
 			    (uint8_t) (buf[3] & 15) };
 
-DEBUG_PRINTF(("gbuf: %2x %2x %2x %2x %2x %2x %2x %2x\n", gbuf[0], gbuf[1], gbuf[2], gbuf[3], gbuf[4], gbuf[5], gbuf[6], gbuf[7]));
-
 	uint8_t kbuf[8];
 	for (i = 0; i < 8; i++) {
 		kbuf[i] = (uint8_t) ((tb_fx[gbuf[i]] | 0x40) & 0x7f);
 	}
 	kbuf[0] |= 0x80;
-
-DEBUG_PRINTF(("kbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", kbuf[0], kbuf[1], kbuf[2], kbuf[3], kbuf[4], kbuf[5], kbuf[6], kbuf[7]));
 
 	uint64_t t64 = 0;
 	t64 = kbuf[0];
@@ -448,7 +362,6 @@ DEBUG_PRINTF(("kbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", kbuf[0], kbuf[1
 	}
 	t64 = t64 << 7;
 
-#ifdef RKR_STRUCT
 	data[0] = (uint8_t) (t64 >> 56);
 	data[1] = (uint8_t) (t64 >> 48);
 	data[2] = (uint8_t) (t64 >> 40);
@@ -458,67 +371,17 @@ DEBUG_PRINTF(("kbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", kbuf[0], kbuf[1
 	data[6] = (uint8_t) (t64 >> 8);
 	data[7] = (uint8_t) t64;
 
+	DEBUG_PRINTF(("\nBuffer debug for %s:\n", GERTimings.ProtocolName));
+	DEBUG_PRINTF(("  buf:  %02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]));
+	DEBUG_PRINTF(("  gbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", gbuf[0], gbuf[1], gbuf[2], gbuf[3], gbuf[4], gbuf[5], gbuf[6], gbuf[7]));
+	DEBUG_PRINTF(("  kbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", kbuf[0], kbuf[1], kbuf[2], kbuf[3], kbuf[4], kbuf[5], kbuf[6], kbuf[7]));
+
 	return sendRfData(&GERTimings, data, sizeof(data));
-#else
-	rfCmdBuf[0*8+0] = 0x01;
-	// StartBit_HTime
-	rfCmdBuf[0*8+1] = (uint8_t) ((260 / 10) >> 8);
-	rfCmdBuf[0*8+2] = (uint8_t) (260 / 10);
-	// StartBit_LTime
-	rfCmdBuf[0*8+3] = (uint8_t) ((8600 / 10) >> 8);
-	rfCmdBuf[0*8+4] = (uint8_t) (8600 / 10);
-	// EndBit_HTime
-	rfCmdBuf[0*8+5] = 0x00;
-	rfCmdBuf[0*8+6] = 0x00;
-	// EndBit_LTime
-	rfCmdBuf[0*8+7] = 0x00;
-	rfCmdBuf[1*8+0] = 0x02;
-	// EndBit_LTime
-	rfCmdBuf[1*8+1] = 0x00;
-	// DataBit0_HTime
-	rfCmdBuf[1*8+2] = (uint8_t) (260 / 10);
-	// DataBit0_LTime
-	rfCmdBuf[1*8+3] = (uint8_t) (260 / 10);
-	// DataBit1_HTime
-	rfCmdBuf[1*8+4] = (uint8_t) (260 / 10);
-	// DataBit1_LTimeur
-	rfCmdBuf[1*8+5] = (uint8_t) (1300 / 10);
-	// DataBit_Count
-	rfCmdBuf[1*8+6] = (uint8_t) 57;
-	// Frame_Count
-	rfCmdBuf[1*8+7] = (uint8_t) 7;
-	rfCmdBuf[2*8+0] = 0x03;
-	rfCmdBuf[2*8+1] = (uint8_t) (t64 >> 56);
-	rfCmdBuf[2*8+2] = (uint8_t) (t64 >> 48);
-	rfCmdBuf[2*8+3] = (uint8_t) (t64 >> 40);
-	rfCmdBuf[2*8+4] = (uint8_t) (t64 >> 32);
-	rfCmdBuf[2*8+5] = (uint8_t) (t64 >> 24);
-	rfCmdBuf[2*8+6] = (uint8_t) (t64 >> 16);
-	rfCmdBuf[2*8+7] = (uint8_t) (t64 >> 8);
-
-	rfCmdBuf[3*8+0] = 0x04;
-	rfCmdBuf[3*8+1] = (uint8_t) t64;
-	rfCmdBuf[3*8+2] = 0x00;
-	rfCmdBuf[3*8+3] = 0x00;
-	rfCmdBuf[3*8+4] = 0x00;
-	rfCmdBuf[3*8+5] = 0x00;
-	rfCmdBuf[3*8+6] = 0x00;
-	rfCmdBuf[3*8+7] = 0x00;
-
-	return sendOutputReport(rfCmdBuf)
-		&& sendOutputReport(rfCmdBuf+8)
-		&& sendOutputReport(rfCmdBuf+16)
-		&& sendOutputReport(rfCmdBuf+24);
-#endif
 }
 
 bool HE853Controller::sendRfData_UK(uint16_t deviceCode, bool cmd)
 {
-#ifdef RKR_STRUCT
 	uint8_t data[3];
-#else
-	uint8_t rfCmdBuf[32];
-#endif
 	int8_t i = 0;
 	uint16_t buf[8];
 
@@ -548,65 +411,14 @@ bool HE853Controller::sendRfData_UK(uint16_t deviceCode, bool cmd)
 	if (cmd == true)
 		sbuf |= 0x01;
 
-#ifdef RKR_STRUCT
 	data[0] = (uint8_t) (addr >> 8);
 	data[1] = (uint8_t) addr;
 	data[2] = sbuf;
 
+	DEBUG_PRINTF(("\nBuffer debug for %s:\n", UKTimings.ProtocolName));
+	DEBUG_PRINTF(("  buf: %02x %02x %02x %02x %02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7]));
+
 	return sendRfData(&UKTimings, data, sizeof(data));
-#else
-	rfCmdBuf[0*8+0] = 0x01;
-	// StartBit_HTime
-	rfCmdBuf[0*8+1] = (uint8_t) ((320 / 10) >> 8);
-	rfCmdBuf[0*8+2] = (uint8_t) (320 / 10);
-	// StartBit_LTime
-	rfCmdBuf[0*8+3] = (uint8_t) ((9700 / 10) >> 8);
-	rfCmdBuf[0*8+4] = (uint8_t) (9700 / 10);
-	// EndBit_HTime
-	rfCmdBuf[0*8+5] = 0x00;
-	rfCmdBuf[0*8+6] = 0x00;
-	// EndBit_LTime
-	rfCmdBuf[0*8+7] = 0x00;
-
-	rfCmdBuf[1*8+0] = 0x02;
-	// EndBit_LTime
-	rfCmdBuf[1*8+1] = 0x00;
-	// DataBit0_HTime
-	rfCmdBuf[1*8+2] = (uint8_t) (320 / 10);
-	// DataBit0_LTime
-	rfCmdBuf[1*8+3] = (uint8_t) (960 / 10);
-	// DataBit1_HTime
-	rfCmdBuf[1*8+4] = (uint8_t) (960 / 10);
-	// DataBit1_LTime
-	rfCmdBuf[1*8+5] = (uint8_t) (320 / 10);
-	// DataBit_Count
-	rfCmdBuf[1*8+6] = (uint8_t) 24;
-	// Frame_Count
-	rfCmdBuf[1*8+7] = (uint8_t) 18;
-
-	rfCmdBuf[2*8+0] = 0x03;
-	rfCmdBuf[2*8+1] = (uint8_t) (addr >> 8);
-	rfCmdBuf[2*8+2] = (uint8_t) addr;
-	rfCmdBuf[2*8+3] = sbuf;
-	rfCmdBuf[2*8+4] = 0x00;
-	rfCmdBuf[2*8+5] = 0x00;
-	rfCmdBuf[2*8+6] = 0x00;
-	rfCmdBuf[2*8+7] = 0x00;
-
-	rfCmdBuf[3*8+0] = 0x04;
-	rfCmdBuf[3*8+1] = 0x00;
-	rfCmdBuf[3*8+2] = 0x00;
-	rfCmdBuf[3*8+3] = 0x00;
-	rfCmdBuf[3*8+4] = 0x00;
-	rfCmdBuf[3*8+5] = 0x00;
-	rfCmdBuf[3*8+6] = 0x00;
-	rfCmdBuf[3*8+7] = 0x00;
-
-	return sendOutputReport(rfCmdBuf)
-		&& sendOutputReport(rfCmdBuf+8)
-		&& sendOutputReport(rfCmdBuf+16)
-		&& sendOutputReport(rfCmdBuf+24);
-#endif
 }
 
 bool HE853Controller::sendKaku(uint16_t deviceCode, bool cmd)
@@ -642,19 +454,6 @@ bool HE853Controller::sendKakuNew(uint16_t deviceCode, bool cmd)
 	return true;
 }
 
-
-#ifndef RKR_STRUCT
-bool HE853Controller::execRfCommand()
-{
-	// execute command
-	uint8_t execCmdBuf[8];
-	memset(execCmdBuf, 0x00, sizeof(execCmdBuf));
-	execCmdBuf[0] = 0x05;
-	// send rf command + execute command
-	return sendOutputReport(execCmdBuf);
-}
-#endif
-
 bool HE853Controller::getDeviceInitialized(void)
 {
 	return deviceInitialized();
@@ -667,32 +466,17 @@ bool HE853Controller::getDeviceStatus(void)
 
 bool HE853Controller::sendAnBan(uint16_t deviceId, uint8_t command)
 {
-#ifdef RKR_STRUCT
 	return sendRfData_AnBan(deviceId, command);
-#else
-	return sendRfData_AnBan(deviceId, command) &&
-		execRfCommand();
-#endif
 }
 
 bool HE853Controller::sendUK(uint16_t deviceId, bool command)
 {
-#ifdef RKR_STRUCT
 	return sendRfData_UK(deviceId, command);
-#else
-	return sendRfData_UK(deviceId, command) &&
-		execRfCommand();
-#endif
 }
 
 bool HE853Controller::sendEU(uint16_t deviceId, bool command)
 {
-#ifdef RKR_STRUCT
 	return sendRfData_GER(deviceId, command);
-#else
-	return sendRfData_GER(deviceId, command) &&
-		execRfCommand();
-#endif
 }
 
 // This is for the lazy - better just for test purposes
