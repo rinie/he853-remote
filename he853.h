@@ -6,12 +6,12 @@
 FName StartBit_HTime StartBit_LTime EndBit_HTime EndBit_LTime DataBit0_HTime DataBit0_LTime
 AnBan  320            4800           0            0            320            960
 UK     320            9700           0            0            320            960
-GER    260            8600           0            0            260            260
+EU     260            8600           0            0            260            260
 
 FName  DataBit1_HTime DataBit1_LTime DataBit_Count Frame_Count Remark
 AnBan  960            320            28            7           (??6Frame)??3?1??????V1.2
 UK     960            320            24            18          (??16Frame)
-GER    260            1300           57            7           (??6Frame)
+EU     260            1300           57            7           (??6Frame)
 
 */
 #include <stdio.h>
@@ -63,7 +63,7 @@ private:
 	bool readDeviceStatus();
 	bool sendRfData(He853Timings *t, uint8_t* data, uint8_t nDataBytes);
 	bool sendRfData_AnBan(uint16_t deviceCode, uint8_t cmd);
-	bool sendRfData_GER(uint16_t deviceCode, bool cmd);
+	bool sendRfData_EU(uint16_t deviceCode, bool cmd);
 	bool sendRfData_UK(uint16_t deviceCode, bool cmd);
 	bool execRfCommand();
 

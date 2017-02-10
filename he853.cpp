@@ -174,9 +174,9 @@ static struct He853Timings UKTimings = {
 	18
 };
 
-const char cGER[] = "GER";
-static struct He853Timings GERTimings = {
-	(char *)&cGER,
+const char cEU[] = "EU";
+static struct He853Timings EUTimings = {
+	(char *)&cEU,
 	1, // no T
 	260, 8600,
 	0, 0,
@@ -321,7 +321,7 @@ bool HE853Controller::sendRfData_AnBan(uint16_t deviceCode, uint8_t cmd)
 	return sendRfData(&AnBanTimings, data, sizeof(data));
 }
 
-bool HE853Controller::sendRfData_GER(uint16_t deviceCode, bool cmd)
+bool HE853Controller::sendRfData_EU(uint16_t deviceCode, bool cmd)
 {
 	uint8_t data[8];
 	int i = 0;
@@ -371,12 +371,12 @@ bool HE853Controller::sendRfData_GER(uint16_t deviceCode, bool cmd)
 	data[6] = (uint8_t) (t64 >> 8);
 	data[7] = (uint8_t) t64;
 
-	DEBUG_PRINTF(("\nBuffer debug for %s:\n", GERTimings.ProtocolName));
+	DEBUG_PRINTF(("\nBuffer debug for %s:\n", EUTimings.ProtocolName));
 	DEBUG_PRINTF(("  buf:  %02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]));
 	DEBUG_PRINTF(("  gbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", gbuf[0], gbuf[1], gbuf[2], gbuf[3], gbuf[4], gbuf[5], gbuf[6], gbuf[7]));
 	DEBUG_PRINTF(("  kbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", kbuf[0], kbuf[1], kbuf[2], kbuf[3], kbuf[4], kbuf[5], kbuf[6], kbuf[7]));
 
-	return sendRfData(&GERTimings, data, sizeof(data));
+	return sendRfData(&EUTimings, data, sizeof(data));
 }
 
 bool HE853Controller::sendRfData_UK(uint16_t deviceCode, bool cmd)
@@ -476,7 +476,7 @@ bool HE853Controller::sendUK(uint16_t deviceId, bool command)
 
 bool HE853Controller::sendEU(uint16_t deviceId, bool command)
 {
-	return sendRfData_GER(deviceId, command);
+	return sendRfData_EU(deviceId, command);
 }
 
 // This is for the lazy - better just for test purposes
