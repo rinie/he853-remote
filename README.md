@@ -47,6 +47,10 @@ After that you can use the deviceId *2001* for toggling the power socket.
 
 * libusb development headers (debian: *libusb-1.0-0-dev*)
 
+### Compile Notes
+
+`he853.h` allows setting of RUN_DRY and DEBUG
+
 ### Known Issues
 
 * doesn't compile on OSX
