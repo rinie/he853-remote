@@ -23,19 +23,21 @@ int main(int argc, char **argv)
 
 	HE853Controller *remote = new HE853Controller();
 	// Exit if something went wrong during accessing device
-	if (remote->getDeviceInitialized() == false) {
+	if (!remote->getDeviceStatus()) {
 		return 2;
 	}
 
 	// just show status and exit
 	if (argc == 1) {
-		remote->getDeviceStatus();
+		printf("HE853 USB device (04d9:01357 Holtek Semiconductor, Inc.) is ready and accessible\n");
 		return 0;
 	}
 
-	// assign values
+	// assign parameters
 	int deviceId = atoi(argv[1]);
 	int command = atoi(argv[2]);
+
+	// Protocol parameter requested?
 	if (argc == 4) {
 		protocol = argv[3][0];
 	}

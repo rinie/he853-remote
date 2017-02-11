@@ -2,22 +2,25 @@
 
 HE853Controller::HE853Controller()
 {
+	const char name[] = "HE853 USB device (04d9:01357 Holtek Semiconductor, Inc.)";
+	const unsigned short idVendor = 0x4d9;
+	const unsigned short idProduct = 0x1357;
 	anban_cnt = 0;
 	m_initialized = false;
 
 #if RUN_DRY == 0
 	struct hid_device_info *devs;
-	devs = hid_enumerate(0x4d9, 0x1357);
+	devs = hid_enumerate(idVendor, idProduct);
 	if (!devs) {
-		printf("No HE853 USB device (04d9:01357 Holtek Semiconductor, Inc.) found\n");
+		printf("%s not found\n", name);
 		hid_free_enumeration(devs);
 	}
 	else
 	{
 		hid_free_enumeration(devs);
-		handle = hid_open(0x4d9, 0x1357, NULL);
+		handle = hid_open(idVendor, idProduct, NULL);
 		if (!handle) {
-			printf("HE853 USB device not fully accessible\n");
+			printf("%s not fully accessible\n", name);
 		}
 		else
 		{
@@ -57,15 +60,6 @@ bool HE853Controller::sendOutputReports(uint8_t* buf, uint16_t nReports)
 		return (bool) rv;
 }
 
-bool HE853Controller::deviceInitialized()
-{
-	if (!m_initialized) {
-		return false;
-	} else {
-		return true;
-	}
-}
-
 bool HE853Controller::readDeviceStatus()
 {
 	uint8_t buf[9];
@@ -80,6 +74,11 @@ bool HE853Controller::readDeviceStatus()
 #else
 	return true;
 #endif
+}
+
+char HE853Controller::readDeviceName()
+{
+	return name;
 }
 
 #define MicroToTicksHe853(t,x) ((((t)->BaseTime) * ((t)->x)) / 10)
@@ -454,14 +453,14 @@ bool HE853Controller::sendKakuNew(uint16_t deviceCode, bool cmd)
 	return true;
 }
 
-bool HE853Controller::getDeviceInitialized(void)
-{
-	return deviceInitialized();
-}
-
 bool HE853Controller::getDeviceStatus(void)
 {
 	return readDeviceStatus();
+}
+
+char HE853Controller::getDeviceName(void)
+{
+	return readDeviceName();
 }
 
 bool HE853Controller::sendAnBan(uint16_t deviceId, uint8_t command)

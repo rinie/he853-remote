@@ -51,7 +51,8 @@ class HE853Controller {
 private:
 	hid_device *handle;
 	uint8_t anban_cnt;
-    	bool m_initialized;
+  bool m_initialized;
+	char name;
 
 public:
 	HE853Controller();
@@ -59,8 +60,8 @@ public:
 
 private:
 	bool sendOutputReports(uint8_t* buf, uint16_t nReports);
-	bool deviceInitialized();
 	bool readDeviceStatus();
+	char readDeviceName(void);
 	bool sendRfData(He853Timings *t, uint8_t* data, uint8_t nDataBytes);
 	bool sendRfData_AnBan(uint16_t deviceCode, uint8_t cmd);
 	bool sendRfData_EU(uint16_t deviceCode, bool cmd);
@@ -68,8 +69,8 @@ private:
 	bool execRfCommand();
 
 public:
-	bool getDeviceInitialized(void);
 	bool getDeviceStatus(void);
+	char getDeviceName(void);
 	bool sendAnBan(uint16_t deviceId, uint8_t command);
 	bool sendUK(uint16_t deviceId, bool command);
 	bool sendEU(uint16_t deviceId, bool command);
