@@ -61,4 +61,7 @@ After that you can use the deviceId *2001* for toggling the power socket.
 ### Known Issues
 
 * doesn't compile on OSX
-* NAS: compiling under Optware works out of the box, for Entware libusb.h is missing
+* NAS: compiling under Optware-ng works out of the box after installing
+all required dependencies, for Entware you need to install
+[include files](https://github.com/Entware-ng/Entware-ng/wiki/Using-gcc-(native-compilation))
+manually
