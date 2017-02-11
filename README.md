@@ -29,11 +29,14 @@ Usage: ./he853 [<DeviceID> <Command> [<Protocol>]]
   Protocol - A=AnBan, U=UK, E=EU, K=KAKU, N=KAKUNEW, L=ALL
     Default protocol is 'E'
     NOTE: Protocol ALL is meant for tests and sends out with all protocols!
-    Without parameters the device status will be shown
+  Without parameters the device status will be shown
 ```
 
-NOTE: You have to have proper access rigths to the USB stick to use it
-but the program will tell you if it doesn't work.
+NOTE: You have to have proper access rigths (root) to the USB stick to use it
+but the program will tell you if it can't properly access the stick.
+Either you can workaround this using `sudo` or by providing a UDEV rules file.
+There is a sample rule available as `80-he853.rules`.
+Good documentation about udev usage and debug is [here](https://wiki.archlinux.org/index.php/udev)
 
 The command is either a *0* for *OFF* or anything > 0 for *ON*.
 To program the power socket you have to place the power socket into learning
@@ -51,6 +54,11 @@ After that you can use the deviceId *2001* for toggling the power socket.
 
 `he853.h` allows setting of RUN_DRY and DEBUG
 
+### PHP Example
+
+`<?php exec("/opt/bin/he853 2001 1"); ?>`
+
 ### Known Issues
 
 * doesn't compile on OSX
+* NAS: compiling under Optware works out of the box, for Entware libusb.h is missing
