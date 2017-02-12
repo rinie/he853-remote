@@ -6,7 +6,7 @@ The sender is used for toggling RF controlled power sockets.
 
 VID:PID 04d9:1357 Holtek Semiconductor, Inc.
 
-The library was is extracted from [roseasy](http://ros.org/wiki/roseasy)
+The library was extracted from [roseasy](http://ros.org/wiki/roseasy)
 which is a part of the [ROS (Robot Operating System)](http://www.ros.org/wiki/) project.
 
 Another project that provides a C# Windows SDK for the dongle is
@@ -62,6 +62,20 @@ After that you can use the deviceId *2001* for toggling the power socket.
 
 * doesn't compile on OSX
 * NAS: compiling under Optware-ng works out of the box after installing
-all required dependencies, for Entware you need to install
+all required dependencies, for Entware-ng you need to install
 [include files](https://github.com/Entware-ng/Entware-ng/wiki/Using-gcc-(native-compilation))
-manually
+manually but they recommend to crosscompile.
+Native build required some adjustments for the Makefile:
+
+```Makefile
+all: he853
+
+hid-libusb.o: hid-libusb.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Wl,-rpath,"/opt/lib" -I/opt/include/libusb-1.0 -c $< -o $@
+
+he853: main.o he853.o hid-libusb.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $+ -Wl,-dynamic-linker,/opt/lib/ld-linux.so.3 -Wl,-rpath,"/opt/lib" -o $@ -lusb-1.0 -lpthread
+
+clean:
+	$(RM) *.o he853
+```
