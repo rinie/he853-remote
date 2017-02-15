@@ -1,5 +1,7 @@
 he853
+he853-static
+he853-shared
 he853.o
-hid-libusb.o
+hidapi-libusb.o
 main.o
 
