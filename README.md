@@ -1,7 +1,7 @@
 # About
 
 This project provides a library and CLI programm for the [HomeEasy now Smartwares HE853 USB RF remote control sender](http://service.smartwares.eu/en-us/product/10.036.05/he853-he-comp-usb-netwerk-dongle.aspx).
-The sender is used for toggling 433MHz RF controlled devices.
+The sender is used for toggling 433MHz (433.92MHz) RF controlled devices.
 
 USB stick VID:PID identity and name: 04d9:1357 Holtek Semiconductor, Inc.
 
@@ -29,15 +29,15 @@ Usage: ./he853 [<DeviceID> <Command> [<Protocol>]]
   DeviceID - ID of the device to act on
   Command  - 0=OFF, 1=ON
     NOTE: AnBan has also values > 1
-  Protocol - A=AnBan, U=UK, E=EU, K=KAKU, N=KAKUNEW, L=ALL
+  Protocol - A=AnBan, U=UK, E=EU, K=KAKU, L=ALL
     Default protocol is 'E'
     NOTE: Protocol ALL is meant for tests and sends out with all protocols!
   Without parameters the device status will be shown
 ```
 
-NOTE: You have to have proper access rigths (root) to the USB stick to use it
+NOTE: You have to have proper access rigths to the USB stick to use it
 but the program will tell you if it can't properly access the stick.
-Either you can workaround this using `sudo` or by installing the udev rules file.
+Either you can use `sudo` or by installing the udev rules file.
 Good documentation about udev usage and debug is [here](https://wiki.archlinux.org/index.php/udev)
 
 The command is either a *0* for *OFF* or anything > 0 for *ON*.
@@ -47,6 +47,10 @@ mode and send the *ON* command to it:
   `./he853 2001 1`
 
 After that you can use the deviceId *2001* for toggling the power socket.
+
+For the KAKU (KlikAanKlikUit, Archtech, Intertechno PAR, ...) protocol you can use
+https://isn-systems.com/tools/it2elro/ to calculate the number.
+But it's fairly easy - take group (A-P = 0-15), multiply by 16 and add devices number (0-15).
 
 ### Requirements
 

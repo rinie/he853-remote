@@ -14,8 +14,10 @@ int main(int argc, char **argv)
 		printf("    DeviceID - ID of the device to act on\n");
 		printf("    Command  - 0=OFF, 1=ON\n");
 		printf("      NOTE: AnBan has also values > 1\n");
-		printf("    Protocol - A=AnBan, U=UK, E=EU, K=KAKU, N=KAKUNEW, L=ALL\n");
+		// NOTE: "N=KAKUNEW" removed, contains currently only a static call
+		printf("    Protocol - A=AnBan, U=UK, E=EU, K=KAKU, L=ALL\n");
 		printf("      Default protocol is '%c'\n", protocol);
+		printf("      NOTE: KAKU ID is device + group * 16\n");
 		printf("      NOTE: Protocol ALL is meant for tests and sends out with all protocols!\n");
 		printf("    Without parameters the device status will be shown\n");
 		return 1;
@@ -60,10 +62,10 @@ int main(int argc, char **argv)
 			printf("Sending command[%i] to deviceId[%i] with protocol KAKU\n", command, deviceId);
 			remote->sendKaku((uint16_t)deviceId, (uint8_t)command);
 			break;
-		case 'N':
-			printf("Sending command[%i] to deviceId[%i] with protocol KAKUNEW\n", command, deviceId);
-			remote->sendKakuNew((uint16_t)deviceId, (uint8_t)command);
-			break;
+		// case 'N':
+		// 	printf("Sending command[%i] to deviceId[%i] with protocol KAKUNEW\n", command, deviceId);
+		// 	remote->sendKakuNew((uint16_t)deviceId, (uint8_t)command);
+		// 	break;
 		case 'L':
 			printf("Sending command[%i] to deviceId[%i] with ALL protocols\n", command, deviceId);
 			remote->sendAll((uint16_t)deviceId, (uint8_t)command);

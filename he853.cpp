@@ -1,10 +1,21 @@
 #include "he853.h"
 
+#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
+#define BYTE_TO_BINARY(byte)  \
+	(byte & 0x80 ? '1' : '0'), \
+	(byte & 0x40 ? '1' : '0'), \
+	(byte & 0x20 ? '1' : '0'), \
+	(byte & 0x10 ? '1' : '0'), \
+	(byte & 0x08 ? '1' : '0'), \
+	(byte & 0x04 ? '1' : '0'), \
+	(byte & 0x02 ? '1' : '0'), \
+	(byte & 0x01 ? '1' : '0')
+
 HE853Controller::HE853Controller()
 {
 	const char name[] = "HE853 USB device (04d9:01357 Holtek Semiconductor, Inc.)";
-	const unsigned short idVendor = 0x4d9;
-	const unsigned short idProduct = 0x1357;
+	const unsigned short idVendor  = 0x4d9;  // 1241
+	const unsigned short idProduct = 0x1357; // 4951
 	anban_cnt = 0;
 	m_initialized = false;
 
@@ -44,19 +55,26 @@ bool HE853Controller::sendOutputReports(uint8_t* buf, uint16_t nReports)
 		DEBUG_PRINTF(("\nsendToStick:\n"));
 		DEBUG_PRINTF(("  buffer: "));
 		for(uint16_t h=0; h < sizeof(buf); h++ ) {
-        DEBUG_PRINTF((" %02X", buf[h]));
+			DEBUG_PRINTF((" %02X", buf[h]));
+			DEBUG_PRINTF((" "BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(buf[h])));
 		}
 		DEBUG_PRINTF(("\n"));
 #endif
 
+	DEBUG_PRINTF(("  Sending "));
 		for (uint16_t i=0; i < nReports; i++) {
-			DEBUG_PRINTF(("  Report %d report %02X first byte %02X\n", i, buf[i*9], buf[i*9+1]));
+			//DEBUG_PRINTF(("  Report %d report %02X first byte %02X\n", i, buf[i*9], buf[i*9+1]));
+			DEBUG_PRINTF(("%d ", i));
 #if RUN_DRY == 0
 			rv = hid_write(handle, buf + (i * 9), 9);
-#else
-			DEBUG_PRINTF(("  Dry run - nothing send\n"));
 #endif
 		}
+#if RUN_DRY == 0
+		DEBUG_PRINTF(("\n"));
+#else
+		rv = true;
+		DEBUG_PRINTF(("\n  Dry run - nothing send\n"));
+#endif
 		return (bool) rv;
 }
 
@@ -129,6 +147,7 @@ bool HE853Controller::sendRfData(He853Timings *t, uint8_t* data, uint8_t nDataBy
 	DEBUG_PRINTF(("\nProtocol %s, %d Bytes, %d Bits:\n  ", t->ProtocolName, nDataBytes, t->DataBitCount));
 	for (; i< nDataBytes && i < 7; i++) {
 		DEBUG_PRINTF(("%02X ", data[i]));
+		DEBUG_PRINTF((BYTE_TO_BINARY_PATTERN" ", BYTE_TO_BINARY(data[i])));
 		rfCmdBuf[2*9+1+1 + i] = data[i];
 	}
 
@@ -138,6 +157,7 @@ bool HE853Controller::sendRfData(He853Timings *t, uint8_t* data, uint8_t nDataBy
 	DEBUG_PRINTF(("\n  "));
 	for (;i< nDataBytes && i < 7+7; i++) {
 		DEBUG_PRINTF(("%02X ", data[i]));
+		DEBUG_PRINTF((BYTE_TO_BINARY_PATTERN" ", BYTE_TO_BINARY(data[i])));
 		rfCmdBuf[3*9+1+1 + i-7] = data[i];
 	}
 
@@ -187,6 +207,11 @@ static struct He853Timings EUTimings = {
 
 
 /*********************************************************************************************\
+
+Some information about the old KlikAanKlikUit / Intertechno PAR ... protocol
+More comments in the send method
+
+* https://github.com/rinie/NodoDueRkr/blob/master/KAKU.ino
 * Deze routine berekent de RAW pulsen uit een CMD_KAKU plaatst deze in de buffer RawSignal
 *
 * KAKU
@@ -197,6 +222,34 @@ static struct He853Timings EUTimings = {
 * KAKU ondersteund:
 *   on/off       ---- 000x Off/On
 *   all on/off   ---- 001x AllOff/AllOn // is group (unit code bestaat uit short 0s)
+NOTE: Not sure about the group on/off, couldn't verify with Intertechno PAR-1500
+
+http://www.mikrocontroller.net/topic/124084#1131698
+; Intertechno Protocol - 12 databits + 1 syncbit
+;
+; 0-Bit    = 1T High + 3T Low + 1T High + 3T Low
+; 1-Bit    = 1T High + 3T Low + 3T High + 1T Low
+; Sync-Bit = 1T High + 31T Low
+;
+; 1T ~ 360 Microsecs
+;
+; 4-Bit familycode (LSB...MSB), 4-Bit devicecode (LSB...MSB), 4-Bit command (LSB...MSB)
+;
+; 0  =  1H
+; 1  =  3L
+; 2  =  1H/3H
+; 3  =  3L/1L  X 12
+; ...
+; 48 =   1H
+; 49 =  31L
+
+https://isn-systems.com/tools/it2elro/
+familycode:		a = 0 ... p = F
+devicecode:		(device+group*4)
+device:				(x1) 1 = 0 .. 4 = 3
+group:				(x4) 1 = 0 .. 4 = 3
+
+https://wiki.pilight.org/doku.php/arctech_switch_old#unit_and_device_id_s
 \*********************************************************************************************/
 
 const char cKAKU[] = "KAKU";
@@ -211,6 +264,58 @@ static struct He853Timings KakuTimings = {
 	7
 };
 
+
+bool HE853Controller::sendKaku(uint16_t deviceCode, bool cmd)
+{
+	uint8_t data[3];
+
+	/*
+		data[0] 4 bit channel, encoded, reversed
+		data[1] 2 bit device + 2 bit group, encoded, reversed
+		data[2] 1 bit const 0, 1 bit const 1, 1 bit const 1, 1 bit on/off
+
+		Encoding: '0' => '01', '1' => '10'
+		Example: For the logical datastream 0111, is sent over the air as 01101010
+		3 -> 0010 -> 01011001 -> reverse -> 10011010
+		2 -> 0001 -> 01010110 -> reverse -> 01101010
+		On   1110 -> 10101001 -> reverse -> 10010101
+		Off  0110 -> 01101001 -> reverse -> 10010110
+		NOTE: The expected encoding does not apply. '0' => '00', '1' => '10' seems used - see signalMap
+	*/
+
+	// C3 00100010 ON
+	// data[0] = 0b00010000;
+	// data[1] = 0b00010000;
+
+	// B2 00010001 ON
+	// data[0] = 0b01000000;
+	// data[1] = 0b01000000;
+
+	// D1 00100010 ON
+	// data[0] = 0b01010000;
+	// data[1] = 0b00000000;
+
+	// Map ID to signal
+	static unsigned char signalMap[16] = {
+		0b00000000, 0b01000000, 0b00010000, 0b01010000,
+		0b00000100, 0b01000100, 0b00010100, 0b01010100,
+		0b00000001, 0b01000001, 0b00010001, 0b01010001,
+		0b00000101, 0b01000101, 0b00010101, 0b01010101
+	};
+	#define lookupSignal(n) (uint8_t) (signalMap[n])
+
+	data[0] = (uint8_t) (lookupSignal(((uint8_t) deviceCode & 0b11110000) >> 4));
+	data[1] = (uint8_t) (lookupSignal( (uint8_t) deviceCode & 0b00001111));
+	data[2] = 0b00010100;
+	if (cmd == true)
+		data[2] |= 0x01;
+
+	DEBUG_PRINTF(("  data: %02x %02x %02x\n", data[0], data[1], data[2]));
+
+	sendRfData(&KakuTimings, data, sizeof(data));
+
+	return true;
+}
 
 /*********************************************************************************************\
 * NewKAKU
@@ -235,11 +340,30 @@ static struct He853Timings KakuNewTimings = {
 	275, // Base time in us
 	1, 8,
 	1,32,
-	1, 1, //0 = 01, Dim = 00
+	1, 1, // 0 = 01, Dim = 00
 	1, 4, // 1 = 10
 	64,
 	18
 };
+
+bool HE853Controller::sendKakuNew(uint16_t deviceCode, bool cmd)
+{
+	uint8_t data[8];
+
+	// C3 ON
+	data[0] = 0x55; // 0b01010101;
+	data[1] = 0xA9; // 0b10101001;
+	data[2] = 0x96; // 0b10010110;
+	data[3] = 0xA9; // 0b10101001;
+	data[4] = 0x95; // 0b10010110;
+	data[5] = 0x5A; // 0b01011010;
+	data[6] = 0x96; // 0b10010110;
+	data[7] = 0x55; // 0b01011001;
+
+	sendRfData(&KakuNewTimings, data, sizeof(data));
+
+	return true;
+}
 
 
 bool HE853Controller::sendRfData_AnBan(uint16_t deviceCode, uint8_t cmd)
@@ -250,9 +374,9 @@ bool HE853Controller::sendRfData_AnBan(uint16_t deviceCode, uint8_t cmd)
 				   0xe04, 0x70e, 0x507, 0x105,
 				   0xf01, 0xb0f, 0xd0b, 0x90d };
 
-	uint8_t gbuf[7];
-	uint8_t kbuf[7];
-	uint8_t cbuf[7];
+	uint8_t gbuf[6];
+	uint8_t kbuf[6];
+	uint8_t cbuf[6];
 	uint8_t idx;
 
 	uint32_t temp;
@@ -313,9 +437,9 @@ bool HE853Controller::sendRfData_AnBan(uint16_t deviceCode, uint8_t cmd)
 	data[3] = (uint8_t) (temp << 4);
 
 	DEBUG_PRINTF(("\nBuffer debug for %s:\n", AnBanTimings.ProtocolName));
-	DEBUG_PRINTF(("  cbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", cbuf[0], cbuf[1], cbuf[2], cbuf[3], cbuf[4], cbuf[5], cbuf[6], cbuf[7]));
-	DEBUG_PRINTF(("  gbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", gbuf[0], gbuf[1], gbuf[2], gbuf[3], gbuf[4], gbuf[5], gbuf[6], gbuf[7]));
-	DEBUG_PRINTF(("  kbuf: %02x %02x %02x %02x %02x %02x %02x %02x\n", kbuf[0], kbuf[1], kbuf[2], kbuf[3], kbuf[4], kbuf[5], kbuf[6], kbuf[7]));
+	DEBUG_PRINTF(("  cbuf: %02x %02x %02x %02x %02x %02x %02x\n", cbuf[0], cbuf[1], cbuf[2], cbuf[3], cbuf[4], cbuf[5], cbuf[6]));
+	DEBUG_PRINTF(("  gbuf: %02x %02x %02x %02x %02x %02x %02x\n", gbuf[0], gbuf[1], gbuf[2], gbuf[3], gbuf[4], gbuf[5], gbuf[6]));
+	DEBUG_PRINTF(("  kbuf: %02x %02x %02x %02x %02x %02x %02x\n", kbuf[0], kbuf[1], kbuf[2], kbuf[3], kbuf[4], kbuf[5], kbuf[6]));
 
 	return sendRfData(&AnBanTimings, data, sizeof(data));
 }
@@ -325,21 +449,24 @@ bool HE853Controller::sendRfData_EU(uint16_t deviceCode, bool cmd)
 	uint8_t data[8];
 	int i = 0;
 
-	uint8_t tb_fx[16] = { 0x07, 0x0b, 0x0d, 0x0e,
-    		  	      0x13, 0x15, 0x16, 0x19,
-			      0x1a, 0x1c, 0x03, 0x05,
-			      0x06, 0x09, 0x0a, 0x0c };
+	uint8_t tb_fx[16] = {
+		0x07, 0x0b, 0x0d, 0x0e,
+		0x13, 0x15, 0x16, 0x19,
+		0x1a, 0x1c, 0x03, 0x05,
+		0x06, 0x09, 0x0a, 0x0c
+	};
 
 	uint8_t buf[4] = { 0x00,
 			(uint8_t) ((deviceCode >> 8) & 0xff),
 			(uint8_t) (deviceCode & 0xff),
-						0x00 };
+			0x00
+		};
 
 	if (cmd == true)
 		buf[3] |= 0x10;
 
 	uint8_t gbuf[8] = { (uint8_t) (buf[0] >> 4),
- 			    (uint8_t) (buf[0] & 15),
+			    (uint8_t) (buf[0] & 15),
 			    (uint8_t) (buf[1] >> 4),
 			    (uint8_t) (buf[1] & 15),
 			    (uint8_t) (buf[2] >> 4),
@@ -420,39 +547,6 @@ bool HE853Controller::sendRfData_UK(uint16_t deviceCode, bool cmd)
 	return sendRfData(&UKTimings, data, sizeof(data));
 }
 
-bool HE853Controller::sendKaku(uint16_t deviceCode, bool cmd)
-{
-	uint8_t data[3];
-
-	// C3 ON
-	data[0] = 0b00010000;
-	data[1] = 0b00010000;
-	data[2] = 0b00010101;
-
-	sendRfData(&KakuTimings, data, sizeof(data));
-
-	return true;
-}
-
-bool HE853Controller::sendKakuNew(uint16_t deviceCode, bool cmd)
-{
-	uint8_t data[8];
-
-	// C3 ON
-	data[0] = 0x55; // 0b01010101;
-	data[1] = 0xA9; // 0b10101001;
-	data[2] = 0x96; // 0b10010110;
-	data[3] = 0xA9; // 0b10101001;
-	data[4] = 0x95; // 0b10010110;
-	data[5] = 0x5A; // 0b01011010;
-	data[6] = 0x96; // 0b10010110;
-	data[7] = 0x55; // 0b01011001;
-
-	sendRfData(&KakuNewTimings, data, sizeof(data));
-
-	return true;
-}
-
 bool HE853Controller::getDeviceStatus(void)
 {
 	return readDeviceStatus();
@@ -484,6 +578,6 @@ bool HE853Controller::sendAll(uint16_t deviceId, uint8_t command)
 	return sendAnBan(deviceId, command) &&
 		sendEU(deviceId, (bool)command) &&
 		sendKaku(deviceId, (bool)command) &&
-		sendKakuNew(deviceId, (bool)command) &&
+		//sendKakuNew(deviceId, (bool)command) &&
 		sendUK(deviceId, (bool)command);
 }
