@@ -1,12 +1,12 @@
 # About
 
-This project provides a library and CLI programm for the [HomeEasy now Smartwares HE853 USB RF remote control sender](http://service.smartwares.eu/en-us/product/10.036.05/he853-he-comp-usb-netwerk-dongle.aspx).
+This project provides a library and CLI programm for the [HomeEasy (now Smartwares) HE853 USB RF remote control sender](http://service.smartwares.eu/en-us/product/10.036.05/he853-he-comp-usb-netwerk-dongle.aspx).
 The sender is used for toggling 433MHz (433.92MHz) RF controlled devices.
 
 USB stick VID:PID identity and name: 04d9:1357 Holtek Semiconductor, Inc.
 
-The library was extracted from [roseasy](http://ros.org/wiki/roseasy)
-which is a part of the [ROS (Robot Operating System)](http://www.ros.org/wiki/) project.
+The library was extracted in 2012 from [roseasy](http://ros.org/wiki/roseasy)
+which is a part of the [ROS (Robot Operating System)](http://www.ros.org/wiki/) project. The code is longer available.
 
 Another project that provides a C# Windows SDK for the dongle is
 the [HE853 Control Project](http://he853control.sourceforge.net/).
