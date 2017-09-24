@@ -1,0 +1,4 @@
+# he853 udev rule
+# Anyone has access if you use this
+#SUBSYSTEM=="usb", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="1357", MODE="1666", SYMLINK+="he853"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="04d9", ATTRS{idProduct}=="1357", OWNER="root", GROUP="users", MODE="0660", SYMLINK+="he853"
